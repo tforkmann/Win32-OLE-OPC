@@ -9,5 +9,6 @@ examples/README.txt
 examples/browserproperties.pl
 examples/groups.pl
 examples/items.pl
+examples/opc_syncread_test.pl
 examples/serverproperties.pl
 examples/tiedhash.pl

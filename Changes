@@ -1,5 +1,20 @@
 Revision history for Perl extension Win32::OLE::OPC.
 
+1.0  Wed Jun  9 12:21:57  2004
+        - NOTE: AddItems and Remove now take server handle and error array
+          references as arguments.
+        - Remove the EU properties from the default item property fetch
+          because they are not in the mandatory set of properties.
+        - Pass on the 'flatten the namespace' argument to ShowLeafs only if it
+          is true.
+     Changes made by Karl Scherer <scherer@hotmail.com, scherer@gene.com>:
+        - Removed lots of =pod lines which weren't needed.
+        - Added SyncRead method which reads a large number of items
+          efficiently.
+        - Switch to a proper implementation of AddItems.  I couldn't get this
+          to work because of bugs in the then current version of ActivePerl
+          Variant support, it all looks good now though.
+
 0.92 Tue Apr 30 10:07:56  2002
         - Added abilty to connect to remote OPC servers using DCOM.
 

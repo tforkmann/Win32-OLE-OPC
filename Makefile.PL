@@ -4,7 +4,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     'NAME'	=> 'Win32::OLE::OPC',
     'VERSION_FROM' => 'OPC.pm', # finds $VERSION
-    'AUTHOR' => 'Martin Tomes <martin\@tomes.freeserve.co.uk',
+    'AUTHOR' => 'Martin Tomes <martin\@tomes.org.uk',
 );
 
 sub MY::postamble {

@@ -7,7 +7,7 @@
 # Put the path to your perl interpreter above if you are using bash as your
 # shell.
 
-# $Id: groups.pl,v 1.3 2001/01/11 10:40:40 martinto Exp $
+# $Id: groups.pl 43 2004-04-07 09:11:24Z martinto $
 
 # This example uses groups, group, items and item objects to get and set data
 # from the server.  You will have to supply the OPC path names of some items
@@ -23,16 +23,16 @@ use Sys::Hostname;
 my $server;
 my @items_read;
 my %items_write;
-if (hostname =~ /eurotherm.co.uk$/) {
+#if (hostname =~ /eurotherm.co.uk$/) {
   $server = 'Eurotherm.ModbusServer.1';
-  @items_read = ('COM2._Diagnostics.Port Information.Characters Sent',
-                 'COM2._Diagnostics.Port Information.Characters Received',
-                 'COM2._Diagnostics.Port Information.Baud Rate',
-                 'COM2._Diagnostics.Port Information.Data Bits');
-  %items_write = ('COM2.ID002-2604-V104.INSTRUMENT.Options.Loops' => 1);
-} else {
+  @items_read = ('COM1._Diagnostics.Comms.PortEnabled',
+                 'COM1._Diagnostics.Comms.OneShotScanning',
+                 'COM1._Diagnostics.Comms.CommsStatus',
+                 'COM1._Diagnostics.Comms.Devices');
+  %items_write = ('COM1.ID003-3504.Instrument.Display.BarMax' => 50);
+#} else {
   # Put your values in here.
-}
+#}
 
 die "No server specified" unless ($server);
 die "No read items specified" unless (@items_read);
@@ -93,7 +93,13 @@ for my $item (@items_read) {
 }
 
 # This adds all the items in one call.
-$items->AddItems($#items_read+1, [@items_read], [@itemids]);
+my @server_handles;
+my @errors;
+$items->AddItems($#items_read+1,
+                 \@items_read,
+                 \@itemids,
+                 \@server_handles,
+                 \@errors);
 
 # Now add the items to write.
 my $groupwrite = $groups->Add('write');
@@ -163,6 +169,7 @@ for my $item_name (keys(%items_write)) {
     print "OPCItem Data\n=================\n";
     PrintProperties($item->Read($OPCDevice)); # Reads from the device.
     my $curval = $item->Read($OPCCache)->{'Value'};
+    print "Writing ", $items_write{$item_name}, " to ", $item_name, "\n";
     $item->Write($items_write{$item_name});
     sleep(2);
     my $newval = $item->Read($OPCDevice)->{'Value'};
@@ -173,14 +180,9 @@ for my $item_name (keys(%items_write)) {
   }
 }
 
-# Now get the server handle for each item and remove it from the items list.
-my @server_handles;
-for (my $i = 1; $i <= ($#items_read+1); $i++) {
-  my $item = $items->Item($i);
-  if (defined($item)) {
-    push @server_handles, $item->ServerHandle;
-  }
-}
+# I have the server handles for the read group, add the ones for the write
+# group and remove them from the server.
+
 $counter = 1;
 for my $item_name (keys(%items_write)) {
   my $item = $witems->Item($counter++); # Assume they are in order!
@@ -188,4 +190,4 @@ for my $item_name (keys(%items_write)) {
     push @server_handles, $item->ServerHandle;
   }
 }
-$items->Remove(\@server_handles);
+$items->Remove(length(@server_handles), \@server_handles, \@errors);

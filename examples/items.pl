@@ -7,7 +7,7 @@
 # Put the path to your perl interpreter above if you are using bash as your
 # shell.
 
-# $Id: items.pl,v 1.2 2001/01/11 10:40:40 martinto Exp $
+# $Id: items.pl 43 2004-04-07 09:11:24Z martinto $
 
 # This example lists all the items in the server address space listing all the
 # properties of that item.  It uses the OPC browser methods to do this.
@@ -30,7 +30,9 @@ sub ShowThisLevel {
     my %result = $opcintf->ItemData($item->{itemid});
     print $path, $item->{name}, "\n";
     for my $attrib (keys %result) {
-      print "        '", $attrib, "' = '", $result{$attrib}, "'", "\n";
+      if (defined($result{$attrib})) {
+        print "        '", $attrib, "' = '", $result{$attrib}, "'", "\n";
+      }
     }
     print "\n";
   }

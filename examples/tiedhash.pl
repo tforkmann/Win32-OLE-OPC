@@ -7,7 +7,7 @@
 # Put the path to your perl interpreter above if you are using bash as your
 # shell.
 
-# $Id: tiedhash.pl,v 1.2 2001/01/11 10:40:40 martinto Exp $
+# $Id: tiedhash.pl 43 2004-04-07 09:11:24Z martinto $
 
 # This example lists all the items in the server address space listing all the
 # properties of that item.  It uses a tied hash to do this.  This method of
@@ -33,7 +33,9 @@ foreach my $server (@available_servers) {
     my %x = %{$OPC{$key}};
     print $key, "\n";
     for my $attrib (keys %x) {
-      print "        '", $attrib, "' = '", $x{$attrib}, "'", "\n";
+      if (defined($x{$attrib})) {
+        print "        '", $attrib, "' = '", $x{$attrib}, "'", "\n";
+      }
     }
     print "\n";
   }

@@ -4,9 +4,8 @@ package Win32::OLE::OPC;
 # This program is free software; you can redistribute it and/or modify it
 # under the same terms as Perl itself.
 
-# $Id: OPC.pm,v 1.16 2002/04/30 09:14:55 martinto Exp $
+# $Id: OPC.pm 201 2004-05-26 16:28:29Z martinto $
 
-=pod
 
 =head1 NAME
 
@@ -96,7 +95,7 @@ require Exporter;
 @EXPORT = qw($OPCCache $OPCDevice);
 # GetOPCServers can be called without an object reference.
 @EXPORT_OK = qw(&GetOPCServers $show_property_exceptions);
-$VERSION = '0.92';
+$VERSION = '0.93';
 
 # Constants.
 $OPCCache = 1;
@@ -349,15 +348,19 @@ sub Leafs {
   my $self = shift;
   my $flat = shift;             # Whether to flatten out the namespace.
   $flat ||= 0;                  # Set false if undefined.
-  my $vflat = Variant(VT_BOOL, $flat); # Need it as a variant.
-  $self->{browser}->ShowLeafs($vflat); # Fill the collection in the Dll.
+  if ($flat) {
+    my $vflat = Variant(VT_BOOL, $flat); # Need it as a variant.
+    $self->{browser}->ShowLeafs($vflat); # Fill the collection in the Dll.
+  } else {
+    $self->{browser}->ShowLeafs; # Fill the collection in the Dll.
+  }
   &_check_error("OPC::Leafs " . $self->{_serverprogid});
   @{$self->{items}} = ();       # Clear out the items array.
   foreach my $item (in {$self->{browser}}) {
     push @{$self->{items}}, { name => $item,
                               itemid => $self->{browser}->GetItemID($item),
                             };
-    &_check_error("OPC::Leafs " . $self->{_serverprogid});
+    &_check_error("OPC::Leafs ". $item . " " . $self->{_serverprogid});
   }
   # Set the count property.
   $self->{count} = $self->{browser}->{Count};
@@ -404,13 +407,17 @@ hash are obtained by calling GetItemProperties.
 sub ItemData {
   my $self = shift;             # Just *exactly* who am I?
   # Use the function which gets the reference and dereference it.  _ItemData()
-  # is called here and bu FETCH().
+  # is called here and by FETCH().
   return %{$self->_ItemData(@_)};
 }
 
 sub _ItemData {
   my $self = shift;
   my $ItemID = shift;           # The item id was returned by Leafs.
+  my @PropsReqd = @_;           # Get the rest into and array, these are names
+                                # of properties to get, if empty get them all.
+
+  my %result; undef %result;    # Clear it out.
 
   my $count        = Variant(VT_I4|VT_BYREF, 0);
   my $PropertyIds  = Variant(VT_ARRAY|VT_I4|VT_BYREF, []);
@@ -423,29 +430,55 @@ sub _ItemData {
                                              $DataTypes);
   &_check_error("OPC::QueryAvailableProperties " . $self->{_serverprogid});
 
-  my $PropertyValues = Variant(VT_ARRAY|VT_VARIANT|VT_BYREF, [1,1]);
-  my $Errors         = Variant(VT_ARRAY|VT_I4|VT_BYREF,      [1,1]);
-  $self->{dllintf}->GetItemProperties($ItemID,
-                                      $count, # Count
-                                      $PropertyIds,
-                                      $PropertyValues,
-                                      $Errors);
-  &_check_error("OPC::GetItemProperties " . $self->{_serverprogid});
+  # Array of properties which are wanted.
+  my $WantedProperties;
+  my @WantedDescriptions;
+  my $WantedCount       = Variant(VT_I4, 0);
+  if ($#PropsReqd == -1) {
+    # Return all properties.
+    for (my $i=1; $i<$count; $i++) {
+      $WantedDescriptions[$i] = $Descriptions->Get($i);
+    }
+    $WantedProperties = $PropertyIds->Copy;
+    $WantedCount = $count->Copy;
+  } else {
+    $WantedProperties = Variant(VT_ARRAY|VT_I4, [1, $#PropsReqd+1]);
+    $WantedCount = 0;
+    for (my $i=1; $i<$count; $i++) {
+      for (my $prop=0; $prop <= $#PropsReqd; $prop++) {
+        if ($Descriptions->Get($i) eq $PropsReqd[$prop]) {
+          $WantedCount = $WantedCount + 1;
+          $WantedProperties->Put($WantedCount, $PropertyIds->Get($i));
+          $WantedDescriptions[$WantedCount] = $Descriptions->Get($i);
+        }
+      }
+    }
+  }
 
-  carp("GetItemProperties error " . $Errors->Get(1)) if ($Errors->Get(1));
+  if ($WantedCount > 0) {
+    my $PropertyValues = Variant(VT_ARRAY|VT_VARIANT|VT_BYREF, [1,1]);
+    my $Errors         = Variant(VT_ARRAY|VT_I4|VT_BYREF,      [1,1]);
+    $self->{dllintf}->GetItemProperties($ItemID,
+                                        $WantedCount, # Count
+                                        $WantedProperties,
+                                        $PropertyValues,
+                                        $Errors);
+    &_check_error("OPC::GetItemProperties " . $self->{_serverprogid});
 
-  # Now turn this into a hash.
-  my %result; undef %result;    # Clear it out.
-  for (my $i=1; $i<=$count; $i++) {
-    if ($Errors->Get($i) == HRESULT(0x80004005)) { # E_FAIL
-      $result{$Descriptions->Get($i)} = undef;
-    } elsif ($Errors->Get($i)) {
-      croak("GetItemProperties: "
-            . $self->{dllintf}->GetErrorString($Errors->Get($i))
-            . " " . $Descriptions->Get($i));
-    } else {
-      $result{$Descriptions->Get($i)} = $PropertyValues->Get($i)
-        if (defined($PropertyValues->Get($i)));
+    # Now turn this into a hash.
+    for (my $i=1; $i<$WantedCount; $i++) {
+      if ($Errors->Get($i) == HRESULT(0x80004005)) { # E_FAIL
+        #$result{$WantedDescriptions[$i]} = undef;
+      } elsif ($Errors->Get($i)) {
+#        croak("GetItemProperties: "
+#              . $self->{dllintf}->GetErrorString($Errors->Get($i))
+#              . '(' . $Errors->Get($i) . ')'
+#              . " " . $WantedDescriptions[$i]);
+        $result{$WantedDescriptions[$i]} = undef;
+      } else {
+        $result{$WantedDescriptions[$i]} = $PropertyValues->Get($i)
+          if (defined($PropertyValues->Get($i)));
+      }
     }
   }
   return \%result;
@@ -663,7 +696,6 @@ sub GetItemIdFromName {
 # browse space.
 # -----------------------------------------------------------------------------
 
-=pod
 
 =head2 TIED HASH
 
@@ -714,6 +746,8 @@ sub FETCH {
   carp &_whowasi . " FETCH" if ($DEBUG);
   my $self = shift;
   my $path = shift;             # This is the OPC name, i need the item id.
+  my @attrs;
+  ($path, @attrs) = split /:/, $path;
 
   # Fetch the itemid for $path.
 
@@ -745,7 +779,7 @@ sub FETCH {
       # }
 
       $self->MoveTo($startpos) if ($startpos); # Leave it where it was before.
-      return $self->_ItemData($item->{itemid});
+      return $self->_ItemData($item->{itemid}, @attrs);
     }
   }
   $self->MoveTo($startpos) if ($startpos); # Leave it where it was before.
@@ -792,8 +826,12 @@ sub STORE {
   $self->{tieitems}->AddItem($itemid, 1);
   # I only ever have one item in this group.
   my $item = $self->{tieitems}->Item(1);
-  $item->Write($value);
-  $self->{tieitems}->Remove([$item->ServerHandle]);
+  if (not defined($item)) {
+    carp &_whowasi."Failed to add $key.itemname to group - itemid was $itemid";
+  } else {
+    $item->Write($value);
+    $self->{tieitems}->Remove([$item->ServerHandle]);
+  }
   $self->MoveTo($startpos) if ($startpos); # Leave it where it was before.
 }
 
@@ -883,7 +921,6 @@ sub DESTROY {
   # No need to do anything in here.
 }
 
-=pod
 
 =head2 OPCGroups
 
@@ -1148,6 +1185,7 @@ sub  RemovePublicGroup {
 =cut
 
 package Win32::OLE::OPC::Group;
+use Win32::OLE::Variant;
 use Carp;
 
 # -----------------------------------------------------------------------------
@@ -1155,7 +1193,6 @@ use Carp;
 #
 #-----------------------------------------------------------------------------
 
-=pod
 
 =head2 OPCGroup
 
@@ -1251,6 +1288,62 @@ sub OPCItems {
 
 =pod
 
+=item SyncRead(SOURCE, NUM, SERVERHANDLES, VALUES, ERRORS, [QUALITIES, TIMESTAMPS])
+
+Read a load of items.
+
+  SOURCE is source of data.
+  NUM is how many.
+  SERVERHANDLES is a reference to an array of server handles.
+  VALUES is a reference to an variant array to hold item values.
+  ERRORS is a reference to an array to hold error codes.
+
+=cut
+
+sub SyncRead {
+  my $self = shift;
+  my $source = shift;
+  my $num = shift;
+  my $server_handles = shift;
+  my $values = shift;
+  my $errors = shift;  
+  my $qualities = shift;
+  my $timestamps = shift;
+  
+  # Convert the server_handles arrays into arrays of variants.
+  my $vhandles = Variant(VT_ARRAY| VT_I4 | VT_BYREF, [1, $num]);
+  for (my $i = 1; $i <= $num; $i++) { 
+    $vhandles->Put($i, $$server_handles[$i-1]);
+  }
+
+  # Create Variant Arrays for results
+  my $vvalues  = Variant(VT_ARRAY|VT_VARIANT|VT_BYREF, [1,$num]);
+  my $verrors  = Variant(VT_ARRAY|VT_I4|VT_BYREF, [1,$num]);
+  
+  ## optional  
+  my $vqualities  = Variant(VT_VARIANT|VT_BYREF,8);
+  my $vtimestamps = Variant(VT_VARIANT|VT_BYREF,"");
+
+  $self->{group}->SyncRead ($source, $num, $vhandles, $vvalues, $verrors,
+	                    $vqualities, $vtimestamps );
+  &Win32::OLE::OPC::_check_error("OPC::Group::SyncRead "
+                                 . $self->{_serverprogid}); 
+  
+  # assign return values
+  @$server_handles = @{$vhandles->Value()};
+  @$errors = @{$verrors->Value()};
+  @$values = @{$vvalues->Value()};
+  if($qualities) { @$qualities = @{$vqualities->Value()} };
+  if($timestamps) { @$timestamps = @{$vtimestamps->Value()} };
+
+  return;
+}
+
+
+
+
+=pod
+
 =back
 
 =cut
@@ -1264,7 +1357,6 @@ package Win32::OLE::OPC::Items;
 use Win32::OLE::Variant;
 use Carp;
 
-=pod
 
 =head2 OPCItems
 
@@ -1401,13 +1493,16 @@ sub AddItem {
 
 =pod
 
-=item AddItems(NUM, ITEMIDS, CLIENTHANDLES)
+=item AddItems(NUM, ITEMIDS, CLIENTHANDLES, SERVERHANDLES, ERRORS)
 
 Add a load of items.
 
   NUM is how many.
   ITEMIDS is a reference to an array of itemids.
   CLIENTHANDLES is a reference to an array of client handles.
+  CLIENTHANDLES is a reference to an array of client handles.
+  SERVERHANDLES is a reference to an array to hold server handles.
+  ERRORS is a reference to an array to hold error codes.
 
 =cut
 
@@ -1416,44 +1511,44 @@ sub AddItems {
   my $num = shift;
   my $itemids = shift;
   my $client_handles = shift;
-
-  for (my $i = 0; $i < $num; $i++) {
-    $self->AddItem($itemids->[$i], $client_handles->[$i]);
+  my $errors = shift;
+  my $server_handles = shift;
+  
+  # Convert the itemids and client_handles arrays into arrays of variants.
+  my $vclient_handles = Variant(VT_ARRAY|VT_I4, [1,$num]);
+  for (my $i = 1; $i <= $num; $i++) { 
+    $vclient_handles->Put($i, $$client_handles[$i-1]);
   }
+
+  # Convert the server_handles arrays into arrays of variants. Has to be 1
+  # based.
+  my $vitemids = Variant(VT_ARRAY|VT_BSTR,[1,$num]);
+  for (my $i = 1; $i <= $num; $i++) {
+    $vitemids->Put($i, $$itemids[$i-1]);
+  }
+   
+  # Create Variant Arrays for results
+  my $vserver_handles  = Variant(VT_ARRAY|VT_I4|VT_BYREF, [1,$num]);
+  my $verrors          = Variant(VT_ARRAY|VT_I4|VT_BYREF, [1,$num]);
+
+## optional  
+##  my $data_types      = Variant(VT_VARIANT|VT_BYREF, 0);
+##  my $access_path     = Variant(VT_VARIANT|VT_BYREF, 0);
+
+  $self->{items}->AddItems($num, $vitemids, $vclient_handles,
+                           $vserver_handles, $verrors);
+  &Win32::OLE::OPC::_check_error("OPC::Items::AddItems "
+                                  . $self->{_serverprogid});
+
+  @$errors[0..$num] = @{$verrors->Value()};
+  @$server_handles[0..$num] = @{$vserver_handles->Value()};
 }
 
-#sub AddItems {
-#  my $self = shift;
-#  my $num = shift;
-#  my $itemids = shift;
-#  my $client_handles = shift;
-#
-#
-#  $self->{items}->AddItems($num, $itemids, $client_handles);
-#  &Win32::OLE::OPC::_check_error("OPC::Items::AddItems "
-#                                 . $self->{_serverprogid});
-#
-##  # Convert the itemids and client_handles arrays into arrays of variants.
-##  my $vclient_handles = Variant(VT_ARRAY|VT_I4, $num);
-##  for (my $i = 0; $i < $num; $i++) {
-##    $vclient_handles->Put($i, @$client_handles[$i]);
-##  }
-##  my $vitemids        = Variant(VT_ARRAY|VT_VARIANT, $num);
-##  for (my $i = 0; $i < $num; $i++) {
-##    my $bstr = Variant(VT_BSTR, @$itemids[$i]);
-##    $vitemids->Put($i, $bstr);
-##  }
-##
-##  my $server_handles  = Variant(VT_ARRAY|VT_I4|VT_BYREF, []);
-##  my $errors          = Variant(VT_ARRAY|VT_I4|VT_BYREF, []);
-##
-##  $self->{items}->AddItems($num, $vitemids, $vclient_handles,
-##                           $server_handles, $errors);
-#}
+
 
 =pod
 
-=item Remove(SERVERHANDLES)
+=item Remove(NUM, SERVERHANDLES, ERRORS)
 
 Removes the items in SERVERHANDLES.
 
@@ -1461,17 +1556,21 @@ Removes the items in SERVERHANDLES.
 
 sub Remove {
   my $self = shift;
+  my $num = shift;
   my $handles = shift;
+  my $errors = shift;
 
-  my $num = $#$handles+1;
-  my $Errors = Variant(VT_ARRAY|VT_I4|VT_BYREF, [1, $num+1]);
-  my $vhandles = Variant(VT_ARRAY|VT_I4, [1, $num+1]);
-  for (my $i = 1; $i < $num+1; $i++) {
-    $vhandles->Put($i, @$handles[$i-1]);
+  # Set up call parameters
+  my $verrors  = Variant(VT_ARRAY|VT_I4|VT_BYREF, [1,$num]);
+  my $vhandles = Variant(VT_ARRAY|VT_I4, [1,$num]);
+  for (my $i = 1; $i <= $num; $i++) {
+    $vhandles->Put($i, $$handles[$i-1]);
   }
-  $self->{items}->Remove($num, $vhandles, $Errors);
+  $self->{items}->Remove ($num, $vhandles, $verrors);
   &Win32::OLE::OPC::_check_error("OPC::Items::Remove "
                                  . $self->{_serverprogid});
+
+  @$errors[0..$num] = @{$verrors->Value()};
 }
 
 =pod
@@ -1488,7 +1587,6 @@ package Win32::OLE::OPC::Item;
 use Win32::OLE::Variant;
 use Carp;
 
-=pod
 
 =head2 OPCItem
 
@@ -1502,7 +1600,7 @@ Return a hash indexed by the following properties containing the property
 value:
 
   Parent ClientHandle ServerHandle AccessPath AccessRights ItemID IsActive
-  RequestedDataType Value Quality TimeStamp CanonicalDataType EUType EUInfo
+  RequestedDataType Value Quality TimeStamp CanonicalDataType
 
 Note that the hash member indexed 'Parent' is a hash pointing back up to the
 parent properties.
@@ -1516,7 +1614,7 @@ sub Properties {
   my %retv;                     # Return this.
   for my $property (qw/Parent ClientHandle ServerHandle AccessPath
                     AccessRights ItemID IsActive RequestedDataType Value
-                    Quality TimeStamp CanonicalDataType EUType EUInfo/) {
+                    Quality TimeStamp CanonicalDataType/) {
     $retv{$property} = $self->{item}->{$property};
     &Win32::OLE::OPC::_check_error("OPC::Item::Properties "
                                    . $self->{_serverprogid},
@@ -1590,7 +1688,6 @@ sub ServerHandle {
 1;
 __END__
 
-=pod
 
 =head1 INSTALLATION
 
@@ -1614,6 +1711,10 @@ been tested with ActiveState Perl build 522.
     (c) 1999,2000,2001,2002 Martin Tomes.  All rights reserved.
     Developed by Martin Tomes <martin@tomes.freeserve.co.uk>.
 
+    (c) 2004 Modified by Karl Scherer. Mods to AddItems and $items->Remove.
+    Added SyncRead methode to group object 
+    <scherer@hotmail.com, scherer@gene.com>.
+
     You may distribute under the terms of the Artistic License.  See
     LICENSE.txt
 
@@ -1623,6 +1724,6 @@ Martin Tomes, martin@tomes.org.uk
 
 =head1 VERSION
 
-Version 0.92
+Version 0.93
 
 =cut

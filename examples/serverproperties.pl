@@ -7,7 +7,7 @@
 # Put the path to your perl interpreter above if you are using bash as your
 # shell.
 
-# $Id: serverproperties.pl,v 1.2 2001/01/11 10:40:40 martinto Exp $
+# $Id: serverproperties.pl 43 2004-04-07 09:11:24Z martinto $
 
 # This example shows the properties of all the installed servers.
 

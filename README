@@ -1,6 +1,6 @@
-Copyright (c) 1999,2000,2001,2002 by Martin Tomes. All rights reserved.
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+Copyright (c) 1999,2000,2001,2002,2003,2004 by Martin Tomes. All rights
+reserved. This program is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
 
 If you find this module useful please e-mail me, my e-mail address is in
 OPC.txt and OPC.html.  I failed to record the addresses of those who have
@@ -86,4 +86,5 @@ INSTALLATION
     are included in the package ready built and all you have to do
     is copy OPC.pm into the `site/lib/Win32/OLE' directory with your
     Perl installation. This module has been tested with ActiveState
-    Perl build 522.
+    Perl 5.8.0 build 806 and the OPC Foundation OPC Automation 2.0
+    server.
