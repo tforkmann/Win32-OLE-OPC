@@ -107,6 +107,20 @@ using the <CODE>new()</CODE> method and then tie it like this:
 </PRE>
 </P>
 <P>
+To connect to a remote server add the name of the server as a parameter to
+the call to <CODE>new()</CODE> or to the tie:
+
+</P>
+<P>
+<PRE>  my $opcintf = Win32::OLE::OPC-&gt;new('Someones.OPCAutomation',
+                                     'Someones.Server',
+                                     'machine.name');
+  tie %OPC, Win32::OLE::OPC, 'Someones.OPCAutomation',
+                             'Someones.Server',
+                             'machine.name';
+</PRE>
+</P>
+<P>
 <HR>
 <H1><A NAME="DESCRIPTION">DESCRIPTION</A></H1>
 <P>
@@ -122,12 +136,19 @@ An exception is raised using <CODE>Carp::croak()</CODE> on any failure.
 <HR>
 <H2><A NAME="METHODS">METHODS</A></H2>
 <DL>
-<DT><STRONG><A NAME="item_Win32">Win32::OLE::OPC-&gt;new(DLLPROGID, SERVERPROGID)</A></STRONG><DD>
+<DT><STRONG><A NAME="item_Win32">Win32::OLE::OPC-&gt;new(DLLPROGID, SERVERPROGID, SERVERNODE)</A></STRONG><DD>
 <P>
 The <CODE>new()</CODE> method creates an instance of an OPC server object. The
 <CODE>DLLPROGID</CODE> argument is the COM progid of the Dll which implements the Dispatch
 interface to the OPC server. The <CODE>SERVERPROGID</CODE> is the COM progid of the OPC server containing the data you wish to access.
-Both arguments are required.
+The DLLPROGID and SERVERPROGID arguments are required.
+
+</P>
+<P>
+The SERVERNODE argument is optional and is the name of a remote machine
+running the SERVERPROGID. When SERVERNODE is specified a connection is made
+to the server using DCOM. WARNING: DCOM security can be a little difficult
+to understand so perseverance is required.
 
 </P>
 <P>
@@ -319,6 +340,10 @@ name is one and the same thing, but you cannot assume that!
 <P>
 <HR>
 <H2><A NAME="TIED_HASH">TIED HASH</A></H2>
+<P>
+See the SYNOPSIS for example code.
+
+</P>
 <P>
 If you tie a hash to this module you can:
 
@@ -609,7 +634,7 @@ ActiveState Perl build 522.
 <HR>
 <H1><A NAME="COPYRIGHT">COPYRIGHT</A></H1>
 <P>
-<PRE>    (c) 2000 Martin Tomes.  All rights reserved.
+<PRE>    (c) 1999,2000,2001,2002 Martin Tomes.  All rights reserved.
     Developed by Martin Tomes &lt;martin@tomes.freeserve.co.uk&gt;.
 </PRE>
 </P>
@@ -629,7 +654,7 @@ Martin Tomes, <A HREF="mailto:martin@tomes.org.uk">martin@tomes.org.uk</A>
 <HR>
 <H1><A NAME="VERSION">VERSION</A></H1>
 <P>
-Version 0.91
+Version 0.92
 
 </P>
 

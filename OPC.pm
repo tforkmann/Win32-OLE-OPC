@@ -4,7 +4,7 @@ package Win32::OLE::OPC;
 # This program is free software; you can redistribute it and/or modify it
 # under the same terms as Perl itself.
 
-# $Id: OPC.pm,v 1.14 2001/01/11 10:40:40 martinto Exp $
+# $Id: OPC.pm,v 1.16 2002/04/30 09:14:55 martinto Exp $
 
 =pod
 
@@ -59,6 +59,16 @@ Note that both methods can be used together.  First create an interface using th
 
     tie %OPC, $opcintf, 'Someones.OPCAutomation', 'Someones.Server';
 
+To connect to a remote server add the name of the server as a parameter to the
+call to new() or to the tie:
+
+  my $opcintf = Win32::OLE::OPC->new('Someones.OPCAutomation',
+                                     'Someones.Server',
+                                     'machine.name');
+  tie %OPC, Win32::OLE::OPC, 'Someones.OPCAutomation',
+                             'Someones.Server',
+                             'machine.name';
+
 =head1 DESCRIPTION
 
 A partial implementation of the OLE for Process Control dispatch interface as
@@ -86,7 +96,7 @@ require Exporter;
 @EXPORT = qw($OPCCache $OPCDevice);
 # GetOPCServers can be called without an object reference.
 @EXPORT_OK = qw(&GetOPCServers $show_property_exceptions);
-$VERSION = '0.91';
+$VERSION = '0.92';
 
 # Constants.
 $OPCCache = 1;
@@ -119,12 +129,18 @@ sub _check_error {
 
 =pod
 
-=item Win32::OLE::OPC->new(DLLPROGID, SERVERPROGID)
+=item Win32::OLE::OPC->new(DLLPROGID, SERVERPROGID, SERVERNODE)
 
 The C<new()> method creates an instance of an OPC server object.  The
 C<DLLPROGID> argument is the COM progid of the Dll which implements the Dispatch
 interface to the OPC server.  The C<SERVERPROGID> is the COM progid of the OPC
-server containing the data you wish to access.  Both arguments are required.
+server containing the data you wish to access.  The DLLPROGID and SERVERPROGID
+arguments are required.
+
+The SERVERNODE argument is optional and is the name of a remote machine
+running the SERVERPROGID.  When SERVERNODE is specified a connection is made
+to the server using DCOM.  WARNING: DCOM security can be a little difficult to
+understand so perseverance is required.
 
 As the OPC specification only allows one browser per instance of the dispatch
 Dll the C<new()> method creates and keeps a browser object in
@@ -138,6 +154,7 @@ sub new {
   my $opcdllprogid = shift;     # The OPC foundation dispatch interface DLL.
                                 # Each vendor will have their own ProgID etc.
   my $serverprogid = shift;     # The server to connect to.
+  my $servernode = shift;       # The machine the server is running on.
 
   croak "usage: @{[&_whowasi]} DLLPROGID SERVERPROGID" if @_;
 
@@ -150,7 +167,11 @@ sub new {
   $self->{dllintf} = Win32::OLE->new($opcdllprogid)
     or croak "Failed to connect to dispatch DLL $opcdllprogid";
   # Connect to the selected server.
-  $self->{dllintf}->Connect($serverprogid);
+  if ($servernode) {
+    $self->{dllintf}->Connect($serverprogid, $servernode);
+  } else {
+    $self->{dllintf}->Connect($serverprogid);
+  }
   &_check_error("OPC::Connect to server " . $serverprogid);
   # Register my name on the server.
   $self->{dllintf}->{ClientName} = $0 . " on " . hostname;
@@ -646,6 +667,8 @@ sub GetItemIdFromName {
 
 =head2 TIED HASH
 
+See the SYNOPSIS for example code.
+
 If you tie a hash to this module you can:
 
 =over 4
@@ -677,9 +700,14 @@ sub TIEHASH {
   my $opcdllprogid = shift;     # The OPC foundation dispatch interface DLL.
                                 # Each vendor will have their own ProgID etc.
   my $serverprogid = shift;     # The server to connect to.
+  my $servernode = shift;       # The machine the server is running on.
 
   # Make one and return it.
-  return &new($class, $opcdllprogid, $serverprogid);
+  if ($servernode) {
+    return &new($class, $opcdllprogid, $serverprogid, $servernode);
+  } else {
+    return &new($class, $opcdllprogid, $serverprogid);
+  }
 }
 
 sub FETCH {
@@ -1583,7 +1611,7 @@ been tested with ActiveState Perl build 522.
 
 =head1 COPYRIGHT
 
-    (c) 2000 Martin Tomes.  All rights reserved.
+    (c) 1999,2000,2001,2002 Martin Tomes.  All rights reserved.
     Developed by Martin Tomes <martin@tomes.freeserve.co.uk>.
 
     You may distribute under the terms of the Artistic License.  See
@@ -1595,6 +1623,6 @@ Martin Tomes, martin@tomes.org.uk
 
 =head1 VERSION
 
-Version 0.91
+Version 0.92
 
 =cut

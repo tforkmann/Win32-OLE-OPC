@@ -50,6 +50,16 @@ SYNOPSIS
 
         tie %OPC, $opcintf, 'Someones.OPCAutomation', 'Someones.Server';
 
+    To connect to a remote server add the name of the server as a
+    parameter to the call to new() or to the tie:
+
+      my $opcintf = Win32::OLE::OPC->new('Someones.OPCAutomation',
+                                         'Someones.Server',
+                                         'machine.name');
+      tie %OPC, Win32::OLE::OPC, 'Someones.OPCAutomation',
+                                 'Someones.Server',
+                                 'machine.name';
+
 DESCRIPTION
     A partial implementation of the OLE for Process Control dispatch
     interface as defined in the 'Data Access Automation Interface
@@ -59,13 +69,19 @@ DESCRIPTION
 
   METHODS
 
-    Win32::OLE::OPC->new(DLLPROGID, SERVERPROGID)
+    Win32::OLE::OPC->new(DLLPROGID, SERVERPROGID, SERVERNODE)
         The `new()' method creates an instance of an OPC server
         object. The `DLLPROGID' argument is the COM progid of the
         Dll which implements the Dispatch interface to the OPC
         server. The `SERVERPROGID' is the COM progid of the OPC
-        server containing the data you wish to access. Both
-        arguments are required.
+        server containing the data you wish to access. The DLLPROGID
+        and SERVERPROGID arguments are required.
+
+        The SERVERNODE argument is optional and is the name of a
+        remote machine running the SERVERPROGID. When SERVERNODE is
+        specified a connection is made to the server using DCOM.
+        WARNING: DCOM security can be a little difficult to
+        understand so perseverance is required.
 
         As the OPC specification only allows one browser per
         instance of the dispatch Dll the `new()' method creates and
@@ -199,6 +215,8 @@ DESCRIPTION
         but you cannot assume that!
 
   TIED HASH
+
+    See the SYNOPSIS for example code.
 
     If you tie a hash to this module you can:
 
@@ -378,7 +396,7 @@ INSTALLATION
     Perl build 522.
 
 COPYRIGHT
-        (c) 2000 Martin Tomes.  All rights reserved.
+        (c) 1999,2000,2001,2002 Martin Tomes.  All rights reserved.
         Developed by Martin Tomes <martin@tomes.freeserve.co.uk>.
 
         You may distribute under the terms of the Artistic License.  See
@@ -388,5 +406,5 @@ AUTHOR
     Martin Tomes, martin@tomes.org.uk
 
 VERSION
-    Version 0.91
+    Version 0.92
 
