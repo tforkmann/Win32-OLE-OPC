@@ -4,7 +4,7 @@ package Win32::OLE::OPC;
 # This program is free software; you can redistribute it and/or modify it
 # under the same terms as Perl itself.
 
-# $Id: OPC.pm 201 2004-05-26 16:28:29Z martinto $
+# $Id: OPC.pm 343 2004-07-05 15:41:37Z martinto $
 
 
 =head1 NAME
@@ -95,7 +95,7 @@ require Exporter;
 @EXPORT = qw($OPCCache $OPCDevice);
 # GetOPCServers can be called without an object reference.
 @EXPORT_OK = qw(&GetOPCServers $show_property_exceptions);
-$VERSION = '0.93';
+$VERSION = '1.01';
 
 # Constants.
 $OPCCache = 1;
@@ -1724,6 +1724,6 @@ Martin Tomes, martin@tomes.org.uk
 
 =head1 VERSION
 
-Version 0.93
+Version 1.01
 
 =cut

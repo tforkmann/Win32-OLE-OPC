@@ -1,5 +1,8 @@
 Revision history for Perl extension Win32::OLE::OPC.
 
+1.0.1 Mon Jul  5 16:42:47 2004
+        - Set the version number this time, 1.0 said it was 0.93 which was a
+          lie.
 1.0  Wed Jun  9 12:21:57  2004
         - NOTE: AddItems and Remove now take server handle and error array
           references as arguments.

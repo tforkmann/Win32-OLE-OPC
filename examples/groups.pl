@@ -7,7 +7,7 @@
 # Put the path to your perl interpreter above if you are using bash as your
 # shell.
 
-# $Id: groups.pl 43 2004-04-07 09:11:24Z martinto $
+# $Id: groups.pl 234 2004-06-09 11:50:59Z martinto $
 
 # This example uses groups, group, items and item objects to get and set data
 # from the server.  You will have to supply the OPC path names of some items
